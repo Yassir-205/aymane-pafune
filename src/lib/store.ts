@@ -18,6 +18,7 @@ export interface Photo { id: string; path: string; position: number }
 export interface Taxon { id: string; name: string }
 export interface Product {
  id: string; name: string; description: string; published: boolean; featured: boolean; bestseller: boolean
+ archived_at?: string | null
  created_at: string; brand_id: string; category_id: string
  brands: Taxon | null; categories: Taxon | null; product_variants: Variant[]; product_images: Photo[]
 }
@@ -25,11 +26,11 @@ export interface City { id: string; name: string; fee: number; enabled: boolean;
 export interface Settings {
  name: string; headline: string; description: string; promotion: string; instagram: string; whatsapp: string; contact: string; logo: string; banner: string; delivery: string
 }
-export const brandName = 'Aymane Pafune'
-const previousBrand = /\bmaison\s+ambre\b/gi
+export const brandName = 'Sabour Parfums'
+const previousBrand = /\b(?:maison\s+ambre|aymane\s+pafune)\b/gi
 const rebrand = (text: string) => text.replace(previousBrand, brandName)
 export const defaults: Settings = {
- name: brandName, headline: 'Le parfum est\nun art.', description: 'Une sélection de parfums de prestige, choisis pour leur authenticité. Livrés partout au Maroc.',
+ name: brandName, headline: 'Un parfum, mille émotions.', description: 'Une sélection de parfums de prestige, choisis pour leur authenticité. Livrés partout au Maroc.',
  promotion: '', instagram: '', whatsapp: '', contact: '', logo: '', banner: '', delivery: 'Paiement à la livraison'
 }
 export const productFields = '*, brands(*), categories(*), product_variants(*), product_images(*)'
@@ -44,12 +45,13 @@ export const catalog = queryOptions({ queryKey: ['catalog'], retry: db ? undefin
  }
 }})
 export const settings = queryOptions({ queryKey: ['settings'], queryFn: async () => {
- if (!db) return defaults
+ if (!db) return { ...defaults, legacyBrand: false }
  const { data, error } = await db.from('store_settings').select('*').eq('id', 1).maybeSingle()
  if (error) throw error
  const config = { ...defaults, ...data } as Settings
  return {
    ...config,
+   legacyBrand: rebrand(config.name) !== config.name,
    name: rebrand(config.name.trim()) || brandName,
    headline: rebrand(config.headline),
    description: rebrand(config.description),
@@ -66,6 +68,7 @@ export const cities = queryOptions({ queryKey: ['cities'], queryFn: async () => 
 }})
 const formatter = new Intl.NumberFormat('fr-MA', { style: 'currency', currency: 'MAD' })
 export const money = (value: number) => formatter.format(value)
+export const isDiscounted = (variant: Variant) => variant.sale_price !== null && variant.sale_price > 0 && variant.sale_price < variant.price
 export const price = (v: Variant) => v.sale_price ?? v.price
 export const variants = (p: Product) => p.product_variants.filter(v => v.active).sort((a,b) => a.size_ml-b.size_ml)
 export const photoUrl = (path: string, width?: number) => db?.storage.from('store-media').getPublicUrl(path, width ? { transform: { width, quality: 80 } } : undefined).data.publicUrl ?? ''

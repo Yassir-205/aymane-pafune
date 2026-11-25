@@ -45,9 +45,22 @@ Sur un projet neuf, ouvrez **SQL Editor → New query**. Pour chaque fichier dan
 
 6. `supabase/migrations/202611240003_product_publication.sql` permet de publier ou dépublier depuis la liste Produits via la fonction existante, tout en préservant les variantes et les images.
 
+7. `supabase/migrations/202611240004_collections.sql` ajoute les collections, leurs associations et leur stockage.
+
 Si des migrations sont déjà appliquées, exécutez seulement celles qui manquent. L’exécution dans le SQL Editor ne renseigne pas l’historique des migrations du CLI. Si vous adoptez ensuite le CLI, réconciliez cet historique avant un `db push`.
 
 Vérifiez que la création du premier administrateur renvoie bien son UUID et le rôle `admin`. Le compte Supabase Auth et ce rôle sont tous les deux nécessaires pour ouvrir `/admin/login`. Le déploiement de la fonction Edge et la configuration de ses secrets se font séparément après les migrations.
+
+## Déployer la gestion des collections sur une boutique existante
+
+Appliquez [202611240004_collections.sql](supabase/migrations/202611240004_collections.sql) sur le projet désigné par `VITE_SUPABASE_URL` avant de redéployer le frontend. Cette migration s'ajoute aux six précédentes.
+
+- **Projet suivi par le CLI**. Depuis la racine, exécutez `npx supabase login`, puis `npx supabase link --project-ref VOTRE_REFERENCE`. Exécutez `npx supabase migration list` et `npx supabase db push --dry-run`. Sur la boutique déjà à jour jusqu'à 202611240003, le seul fichier attendu est 202611240004. Appliquez-le avec `npx supabase db push`, puis vérifiez avec `npx supabase migration list`.
+- **Projet géré par SQL Editor**. Ouvrez **SQL Editor → New query** sur le bon projet. Collez le fichier complet, exécutez-le une fois et attendez la confirmation. Vérifiez que les tables `collections` et `product_collections` et le bucket privé `collection-media` existent. Si les migrations précédentes ont été appliquées par SQL Editor, utilisez aussi cette méthode ou réconciliez l'historique avant de lancer le CLI.
+
+L'amorçage reprend les collections de catégorie existantes et leurs parfums. La collection Promotions Femme est amorcée si une remise Femme publiée existe au moment de la migration. Par la suite, toutes les associations et publications se gèrent depuis l'administration. Les couvertures fournies par défaut peuvent être remplacées dans le menu **Collections**.
+
+Redéployez le frontend avec la configuration Vercel actuelle. L'environnement et la fonction Edge de commande n'ont pas besoin de changement. Vérifiez sur un projet de test qu'un administrateur peut créer, illustrer, publier et réordonner une collection, assigner un parfum dans **Produits**, puis ouvrir la collection et passer une commande. En navigation privée, seuls les collections et parfums publiés doivent apparaître.
 
 ## Vercel
 

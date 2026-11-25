@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { Link, Outlet } from 'react-router-dom'
-import { BadgeCheck, Camera, MessageCircle, Moon, ShoppingBag, Sun, Truck, Droplets } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Camera, Menu, MessageCircle, Moon, Search, ShoppingBag, Sun, Droplets, X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useShop } from '../contexts/Shop'
 import { brandName, money, photos, photoUrl, price, settings, variants, type Product, type Photo } from '../lib/store'
@@ -9,22 +9,47 @@ export function ThemeButton() {
  const { theme, toggleTheme } = useShop()
  return <button className="icon" onClick={toggleTheme} aria-label="Changer le thème">{theme === 'dark' ? <Sun size={19}/> : <Moon size={19}/>}</button>
 }
+const officialLogo = "/sabour-logo-header.png"
 export function BrandMark() {
- return <span className="store-mark" aria-hidden>AP</span>
+ return <img className="store-mark" src={officialLogo} alt="" width={44} height={44}/>
 }
 export function StoreLayout() {
  const { cart } = useShop()
  const { data } = useQuery(settings)
- const name = data?.name ?? brandName
+ const name = brandName
+ const location = useLocation()
+ const [menuOpen, setMenuOpen] = useState(false)
+ const menuTrigger = useRef<HTMLButtonElement>(null)
+ useEffect(() => setMenuOpen(false), [location.pathname, location.search, location.hash])
+ useEffect(() => {
+   if (!menuOpen) return
+   function dismiss(event: KeyboardEvent) {
+     if (event.key === 'Escape') {
+       setMenuOpen(false)
+       menuTrigger.current?.focus()
+     }
+   }
+   window.addEventListener('keydown', dismiss)
+   return () => window.removeEventListener('keydown', dismiss)
+ }, [menuOpen])
  const count = Object.values(cart).reduce((a,b) => a+b, 0)
  const whatsapp = data?.whatsapp.replace(/\D/g,'')
  return <div className="storefront">
  <a className="skip" href="#contenu">Aller au contenu</a>
- <div className="store-assurance"><span><BadgeCheck size={15} aria-hidden/> Parfums authentiques</span><span><Truck size={15} aria-hidden/> Livraison au Maroc</span></div>
+ <div className="store-assurance">{data?.promotion || 'Livraison au Maroc · Paiement à la livraison'}</div>
  <header className="store-header">
   <div className="nav-inner storefront-nav">
-   <Link className="wordmark" to="/">{data?.logo ? <img src={photoUrl(data.logo)} alt={name}/> : <><BrandMark/><span>{name}</span></>}</Link>
-   <div className="nav-tools"><ThemeButton/>{count > 0 && <Link className="icon bag" aria-label={`Panier, ${count} articles`} to="/panier"><ShoppingBag size={20}/><span>{count}</span></Link>}</div>
+   <button ref={menuTrigger} className="icon menu-trigger" type="button" aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'} aria-controls="store-navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={22}/> : <Menu size={22}/>}</button>
+   <nav id="store-navigation" className={menuOpen ? 'main-nav open' : 'main-nav'} aria-label="Navigation principale">
+    <NavLink end to="/" onClick={() => setMenuOpen(false)}>Accueil</NavLink>
+    <NavLink to="/boutique" onClick={() => setMenuOpen(false)}>Boutique</NavLink>
+    <Link to="/#collections" onClick={() => setMenuOpen(false)}>Collections</Link>
+   </nav>
+   <Link className="wordmark storefront-brand" to="/" aria-label={name}><img src={officialLogo} alt="" width={60} height={54}/></Link>
+   <div className="nav-tools">
+    <Link className="icon" aria-label="Rechercher un parfum" to="/boutique#recherche"><Search size={21}/></Link>
+    <Link className="icon bag" aria-label={count ? `Panier, ${count} articles` : 'Panier'} to="/panier"><ShoppingBag size={21}/>{count > 0 && <span>{count}</span>}</Link>
+   </div>
   </div>
  </header>
  <main id="contenu"><Outlet/></main>
@@ -41,20 +66,27 @@ export function ProductPhoto({ photo, name, eager = false, sizes }: { photo?: Ph
  return <div className="product-photo">{original && !fallback ? <img loading={eager ? 'eager' : 'lazy'} decoding="async" src={original} srcSet={srcSet} sizes={sizes ?? (eager ? '(min-width: 768px) 50vw, 100vw' : '(min-width: 1320px) 302px, (min-width: 1150px) 25vw, (min-width: 768px) 33vw, 50vw')} alt={name} onError={() => { if(srcSet) setUseOriginal(true); else setFallback(true) }}/> : <Droplets size={44} strokeWidth={1} aria-hidden/>}</div>
 }
 function ProductCard({ product, first }: { product: Product; first: boolean }) {
+ const { add } = useShop()
  const available = variants(product)
  const stocked = available.filter(variant => variant.stock > 0)
  const priced = stocked.length ? stocked : available
  const cheapest = [...priced].sort((a,b) => price(a)-price(b))[0]
  const detail = `/parfum/${product.id}`
+ const onlyStocked = stocked.length === 1 ? stocked[0] : undefined
  const cover = photos(product)[0]
+ const sizes = available.map(variant => variant.size_ml + ' ml').join(' · ')
  return <article className="card catalog-card">
-  <Link className="photo-wrap" to={detail} aria-label={product.name}><ProductPhoto key={cover?.id} photo={cover} name={product.name} eager={first} sizes="(min-width: 1200px) 260px, (min-width: 1150px) 23vw, (min-width: 768px) 30vw, 45vw"/>{!stocked.length && <span className="tag">Épuisé</span>}</Link>
+  <Link className="photo-wrap" to={detail} aria-label={product.name}><ProductPhoto key={cover?.id} photo={cover} name={product.name} eager={first} sizes="(min-width: 1200px) 285px, (min-width: 1150px) 24vw, (min-width: 768px) 32vw, 48vw"/>{!stocked.length && <span className="tag">Épuisé</span>}</Link>
   <div className="card-copy">
    <span className="eyebrow">{product.brands?.name}</span>
-   <h2><Link to={detail}>{product.name}</Link></h2>
-   {cheapest && <div className="catalog-card-meta"><p>{priced.length > 1 ? 'Dès ' : ''}{money(price(cheapest))} {cheapest.sale_price !== null && <del>{money(cheapest.price)}</del>}</p>{priced.length===1&&<span>{cheapest.size_ml} ml</span>}</div>}
-   {stocked.length>0&&<p className="catalog-availability">En stock</p>}
-   <Link className={stocked.length ? 'button primary' : 'button'} to={detail} aria-label={(stocked.length ? 'Commander ' : 'Voir ')+product.name}>{stocked.length ? 'Commander' : 'Voir le parfum'}</Link>
+   <h3><Link to={detail}>{product.name}</Link></h3>
+   <div className="catalog-card-meta">{cheapest && <><span>{priced.length > 1 ? 'Dès ' : ''}{money(price(cheapest))}</span>{cheapest.sale_price !== null && <del>{money(cheapest.price)}</del>}</>}</div>
+   <p className="catalog-sizes" title={sizes}>{sizes}</p>
+   <div className="catalog-actions">
+    <Link className={stocked.length ? 'button primary' : 'button'} to={detail} aria-label={(stocked.length ? 'Acheter ' : 'Voir ')+product.name}>{stocked.length ? 'Acheter' : 'Voir le parfum'}</Link>
+    {onlyStocked ? <button className="button" type="button" onClick={() => add(onlyStocked.id, onlyStocked.stock)}>Ajouter au panier</button>
+      : stocked.length > 1 && <Link className="button" to={detail+'#choisir-format'} aria-label={'Choisir un format pour ajouter '+product.name+' au panier'}>Ajouter au panier</Link>}
+   </div>
   </div>
  </article>
 }

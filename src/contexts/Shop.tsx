@@ -32,8 +32,8 @@ function useStore() {
      return next
    })
  }
- function add(id: string, stock: number) {
-   setCart(current => ({ ...current, [id]: Math.min(stock, 20, (current[id] ?? 0) + 1) }))
+ function add(id: string, stock: number, quantity = 1) {
+   setCart(current => ({ ...current, [id]: Math.min(stock, 20, (current[id] ?? 0) + quantity) }))
    setNotice('Parfum ajouté au panier.')
  }
  return { theme, toggleTheme: () => setTheme(theme === 'dark' ? 'light' : 'dark'), cart, lines, total, isPending, update, add, notice, setNotice, clear: () => setCart({}) }

@@ -5,6 +5,7 @@ import { db, money, statuses, photoUrl, type City, type Order, type Settings, ty
 import { orderQuery } from './Admin'
 import { useShop } from '../../contexts/Shop'
 import { uploadImage } from './media'
+import { storeDay } from '../../lib/adminStatistics'
 
 const next:Partial<Record<Status,Status>>={pending:'confirmed',confirmed:'preparing',preparing:'shipped',shipped:'delivered'}
 const orderDate = new Intl.DateTimeFormat('fr-MA',{dateStyle:'medium',timeStyle:'short',timeZone:'Africa/Casablanca'})
@@ -37,12 +38,23 @@ function OrderEditor({order,expanded}:{order:Order;expanded:boolean}) {
 }
 export function Orders(){
  const [params]=useSearchParams()
+ return <OrderList key={params.toString()}/>
+}
+function OrderList(){
+ const [params]=useSearchParams()
  const [search,setSearch]=useState(params.get('ref')??'')
- const [status,setStatus]=useState('')
+ const [status,setStatus]=useState(params.get('status')??'')
+ const [from,setFrom]=useState(params.get('from')??'')
+ const [to,setTo]=useState(params.get('to')??'')
+ const invalid=Boolean(from&&to&&from>to)
  const result=useQuery(orderQuery)
- const filtered=result.data?.filter(o=>(!status||o.status===status)&&[o.reference,o.customer_name,o.phone,o.city_name,...o.order_items.map(item=>item.product_name)].some(v=>v.toLowerCase().includes(search.trim().toLowerCase())))
+ const filtered=result.data?.filter(o=>{
+  const day=from||to?storeDay(o.created_at):''
+  return (!from||day>=from)&&(!to||day<=to)&&(!status||o.status===status)&&[o.reference,o.customer_name,o.phone,o.city_name,...o.order_items.map(item=>item.product_name)].some(v=>v.toLowerCase().includes(search.trim().toLowerCase()))
+ })
  return <><h1>Commandes</h1><div className="admin-order-filters"><label>Recherche<input type="search" placeholder="Référence, client, parfum…" value={search} onChange={e=>setSearch(e.target.value)}/></label><label>Statut<select value={status} onChange={e=>setStatus(e.target.value)}><option value="">Tous</option>{Object.entries(statuses).map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label></div>
- {result.isError?<p role="alert">Impossible de charger les commandes.</p>:result.isPending?<p>Chargement…</p>:filtered?.length?filtered.map(order=><OrderEditor key={order.id} order={order} expanded={params.get('ref')===order.reference}/>):<p>Aucune commande trouvée.</p>}</>
+ <div className="admin-order-filters"><label>Du<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>Au<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label></div>
+ {invalid?<p role="alert">La date de fin doit être égale ou postérieure à la date de début.</p>:result.isError?<p role="alert">Impossible de charger les commandes.</p>:result.isPending?<p>Chargement…</p>:filtered?.length?filtered.map(order=><OrderEditor key={order.id} order={order} expanded={params.get('ref')===order.reference}/>):<p>Aucune commande trouvée.</p>}</>
 }
 function CityEditor({city,onClose}:{city?:City;onClose:()=>void}) {
  const query=useQueryClient()

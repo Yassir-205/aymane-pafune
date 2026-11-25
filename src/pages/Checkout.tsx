@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Banknote, ChevronLeft, CircleCheck, ShoppingBag, Trash2 } from 'lucide-react'
 import { useShop } from '../contexts/Shop'
-import { brandName, catalog, cities, db, money, price, photos, settings, variants, type Receipt } from '../lib/store'
+import { brandName, catalog, cities, db, money, price, photos, variants, type Receipt } from '../lib/store'
 import { ProductPhoto } from '../components/StoreUI'
 
 export const phonePattern = /^(?:0|\+?212)[5-7][0-9]{8}$/
@@ -89,6 +89,7 @@ export function Checkout() {
     sessionStorage.removeItem('ma-attempt')
     if (!direct) clear()
     void query.invalidateQueries({queryKey:catalog.queryKey})
+    void query.invalidateQueries({queryKey:['collection-products']})
     navigate('/confirmation',{replace:true,state:{receipt}})
    } catch {
     setMessage('La commande n’a pas pu être confirmée. Réessayez.')
@@ -125,13 +126,12 @@ export function Checkout() {
 export function Confirmation() {
  const { state } = useLocation()
  const receipt = state?.receipt as Receipt | undefined
- const { data: config } = useQuery(settings)
  return <section className="container page receipt-page">
   <div className="panel confirmation">
    <header className="receipt-heading">
     {receipt&&<span className="receipt-icon"><CircleCheck size={30} aria-hidden/></span>}
     <h1>{receipt?'Commande confirmée':'Confirmation de commande'}</h1>
-    {receipt&&<p>Merci, {receipt.customer_name}, d’avoir commandé chez {config?.name ?? brandName}.</p>}
+    {receipt&&<p>Merci, {receipt.customer_name}, d’avoir commandé chez {brandName}.</p>}
    </header>
    {receipt&&<>
     <dl className="receipt-info"><div><dt>Référence</dt><dd>{receipt.reference}</dd></div><div><dt>Livraison</dt><dd>{receipt.address}, {receipt.city_name}</dd></div></dl>
@@ -139,7 +139,7 @@ export function Confirmation() {
     <Summary subtotal={receipt.subtotal} fee={receipt.delivery_fee}/>
     <p className="checkout-payment"><Banknote size={19} aria-hidden/> Paiement en espèces à la livraison</p>
    </>}
-   <Link className="button primary" to="/">Voir tous les parfums</Link>
+   <Link className="button primary" to="/boutique">Voir tous les parfums</Link>
   </div>
  </section>
 }
